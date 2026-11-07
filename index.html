@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Card ledger</title>
+<title>MoneyMate</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4a46d9">
+<meta name="apple-mobile-web-app-title" content="MoneyMate">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
@@ -21,8 +22,8 @@ h1{font-size:1.4rem;margin:4px 0 14px;letter-spacing:-.01em;color:var(--ac)}
 h2{font-size:1.05rem;margin:22px 0 8px}
 section{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:14px;margin-bottom:14px}
 label{display:block;font-size:.85rem;color:var(--mu);margin-bottom:3px}
-input{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px;min-height:44px}
-input:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+input,select{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:10px;min-height:44px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .full{grid-column:1/-1}
 button{font:inherit;min-height:44px;border-radius:8px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);padding:8px 14px;cursor:pointer}
@@ -61,12 +62,13 @@ textarea{width:100%;min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;
 </head>
 <body>
 <main>
-<h1>Card ledger</h1>
+<h1>MoneyMate</h1>
 <div id="bnr" class="calc" hidden><span id="bt"></span><div><button id="bb" style="margin-top:6px">Copy backup now</button></div></div>
 
 <section>
   <div class="row">
     <div class="full"><label for="date">Date</label><input id="date" type="date"></div>
+    <div class="full"><label for="card">Card (optional)</label><select id="card"></select><input id="cardnew" hidden placeholder="New card name" maxlength="40" style="margin-top:8px" autocomplete="off"></div>
     <div><label for="owner">Card owner</label><input id="owner" list="ppl" autocomplete="off" placeholder="Whose card"></div>
     <div><label for="shopper">Shopper</label><input id="shopper" list="ppl" autocomplete="off" placeholder="Who bought"></div>
     <div><label for="amount">Amount (negative for a refund)</label><input id="amount" type="number" inputmode="decimal" step="any" placeholder="0.00"></div>
@@ -83,6 +85,7 @@ textarea{width:100%;min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;
 <h2>Who owes whom</h2>
 <div id="nets" class="chips"></div>
 <section id="bal"></section>
+<div class="bar" style="margin:-4px 0 14px"><button id="shr">Share summary as image</button></div>
 
 <h2>Entries</h2>
 <section>
@@ -98,9 +101,9 @@ textarea{width:100%;min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;
 
 <h2>Backup</h2>
 <section>
-  <div class="mu" style="margin-bottom:8px">Your data lives in this browser only. Copy the backup and keep it in a note. Paste backup or Restore from file adds items you don’t already have and never changes or deletes existing ones.</div>
+  <div class="mu" style="margin-bottom:8px">Your data lives in this browser only. Save a backup file, or copy it into a note. Paste backup or Restore from file adds items you don’t already have and never changes or deletes existing ones.</div>
   <textarea id="bk" aria-hidden="true" tabindex="-1" style="position:absolute;left:-9999px;top:0;width:1px;height:1px;min-height:0;padding:0;border:0"></textarea>
-  <div class="bar"><button id="cp">Copy backup</button><button id="im" class="p">Paste backup</button><button id="fl">Restore from file</button><input id="fi" type="file" accept=".json,application/json,text/plain" hidden></div>
+  <div class="bar"><button id="dl" class="p">Save backup file</button><button id="cp">Copy backup</button><button id="im" class="p">Paste backup</button><button id="fl">Restore from file</button><input id="fi" type="file" accept=".json,application/json,text/plain" hidden></div>
   <div id="msg" role="status" style="position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));background:var(--tx);color:var(--bg);border-radius:10px;padding:10px 14px;font-size:.9rem;z-index:5"></div>
 </section>
 <h2>Settings</h2>
@@ -113,11 +116,11 @@ textarea{width:100%;min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;
 <section><div class="mu" style="margin-bottom:8px">Asks for a PIN when you open the app or switch away. It hides the screen but doesn’t encrypt the stored data.</div>
 <div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="4 to 8 digits" aria-label="New PIN"><button id="pset">Set PIN</button></div><button id="prm" hidden>Remove PIN</button></section>
 </main>
-<div id="lock" hidden><div class="lk"><h1>Card ledger</h1><input id="lpin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN"><button class="p" id="unl">Unlock</button><div class="mu" id="lerr"></div></div></div>
+<div id="lock" hidden><div class="lk"><h1>MoneyMate</h1><input id="lpin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN"><button class="p" id="unl">Unlock</button><div class="mu" id="lerr"></div></div></div>
 
 <script>
 (function(){
-var KEY='cardledger.v1',S={entries:[],payments:[],disc:{}},editId=null,showSettled=false,armed=null,curP=[],tm,showLog=false;
+var DEF=['SBI Cashback','HSBC Liv+','ICICI Amazon','HDFC Millenia IPS','HDFC Millenia Avi','HDFC Infinity','HDFC Phonepe','Axis Flipkart','Axis Rewards','HDFC Swiggy','Kotak League','Axis IOCL','IndusInd Rupay','Axis Neo','SBI Mastercard Debit'],KEY='cardledger.v1',S={entries:[],payments:[],disc:{}},editId=null,showSettled=false,armed=null,curP=[],tm,showLog=false;
 var $=function(i){return document.getElementById(i)};
 function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&Array.isArray(d.entries))S=d}}catch(e){}}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){$('msg').textContent='Could not save in this browser. Use Copy backup to keep your data.'}}
@@ -133,12 +136,14 @@ function calc(){var a=parseFloat($('amount').value),d=parseFloat($('disc').value
   if(isNaN(a)){$('calc').textContent='Shopper pays: 0.00';return}
   var p=pay(draft());$('calc').textContent=(a<0?'Refund to shopper: ':'Shopper pays: ')+m(Math.abs(p))+(a<0?'  (reduces what they owe)':'  (list price '+m(a)+')')}
 
-function resetForm(){editId=null;$('date').value=today();['owner','shopper','amount','disc','cap','fee','note'].forEach(function(i){$(i).value=''});
+function resetForm(){editId=null;$('date').value=today();['owner','shopper','amount','disc','cap','fee','note','cardnew'].forEach(function(i){$(i).value=''});cardsUI();$('card').value='';$('cardnew').hidden=true;
   $('save').textContent='Add entry';$('cancel').hidden=true;calc()}
 
 function save(){
   var o=$('owner').value.trim(),s=$('shopper').value.trim(),a=parseFloat($('amount').value),d=parseFloat($('disc').value);
   if(isNaN(d))d=0;
+  var cd=$('card').value==='__new'?$('cardnew').value.trim().slice(0,40):$('card').value;
+  if($('card').value==='__new'&&!cd){$('msg').textContent='Type the new card name.';return}
   if(!o||!s||isNaN(a)||a===0){$('msg').textContent='Enter card owner, shopper and an amount (negative for a refund).';return}
   if(d<0||d>100){$('msg').textContent='Discount must be between 0 and 100.';return}
   if(key(o)===key(s)){$('msg').textContent='Owner and shopper are the same person, so nothing to settle.';return}
@@ -146,7 +151,8 @@ function save(){
   // reuse existing spelling of a name
   names().forEach(function(n){if(key(n)===key(o))o=n;if(key(n)===key(s))s=n});
   S.disc=S.disc||{};S.disc[key(o)]=d;
-  var rec={date:$('date').value||today(),owner:o,shopper:s,amount:a,disc:d,cap:parseFloat($('cap').value)||0,fee:parseFloat($('fee').value)||0,note:$('note').value.trim()};
+  if(cd){S.cards=S.cards||[];DEF.concat(S.cards).forEach(function(n){if(key(n)===key(cd))cd=n});if(DEF.concat(S.cards).indexOf(cd)<0)S.cards.push(cd);S.cdisc=S.cdisc||{};S.cdisc[key(cd)]=d;S.cown=S.cown||{};S.cown[key(cd)]=o}
+  var rec={date:$('date').value||today(),owner:o,shopper:s,amount:a,disc:d,card:cd,cap:parseFloat($('cap').value)||0,fee:parseFloat($('fee').value)||0,note:$('note').value.trim()};
   if(!editId)rec.share=S.share||0;
   if(editId){S.entries.forEach(function(e){if(e.id===editId){logit('Edited entry '+e.owner+'/'+e.shopper+' '+m(e.amount)+' at '+e.disc+'% → '+rec.owner+'/'+rec.shopper+' '+m(rec.amount)+' at '+rec.disc+'%'+(e.settled?' (already settled)':''));Object.assign(e,rec)}})}
   else{rec.id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);rec.settled=null;S.entries.push(rec);logit('Added '+rec.shopper+' on '+rec.owner+'’s card: '+m(rec.amount)+' at '+rec.disc+'%')}
@@ -162,6 +168,19 @@ function pairs(){
   return Object.keys(net).map(function(k){var p=k.split('\u0001'),v=net[k];
     return v>=0?{from:p[0],to:p[1],amt:v,k:k}:{from:p[1],to:p[0],amt:-v,k:k}}).filter(function(x){return x.amt>0.004})}
 
+function cardsUI(){var sel=$('card'),cur=sel.value,L=DEF.concat(S.cards||[]);S.entries.forEach(function(e){if(e.card&&L.map(key).indexOf(key(e.card))<0)L.push(e.card)});
+  sel.innerHTML='<option value="">No card selected</option>'+L.map(function(n){return '<option>'+esc(n)+'</option>'}).join('')+'<option value="__new">+ Add a new card...</option>';sel.value=cur}
+function shareImg(){var P=pairs(),U=S.entries.filter(function(e){return !e.settled}).sort(function(a,b){return a.date<b.date?-1:1}).slice(-12),W=900,H=170+Math.max(1,P.length)*56+(U.length?100+U.length*42:0)+40,c=document.createElement('canvas');c.width=W;c.height=H;
+  var x=c.getContext('2d'),F='system-ui,-apple-system,Segoe UI,Roboto,sans-serif',y=170;
+  function t(s,px,py,f,col,al){x.font=f+' '+F;x.fillStyle=col;x.textAlign=al||'left';x.fillText(s,px,py)}
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#4a46d9';x.fillRect(0,0,W,16);
+  t('MoneyMate summary',40,80,'bold 40px','#1b1f33');t(today(),40,116,'24px','#646a86');
+  if(!P.length)t('Everyone is square.',40,y,'28px','#1b1f33');
+  P.forEach(function(p){t(p.from,40,y,'bold 30px','#c0392b');var w=x.measureText(p.from).width;t(' owes ',40+w,y,'30px','#646a86');var w2=x.measureText(' owes ').width;t(p.to,40+w+w2,y,'bold 30px','#18793f');t(m(p.amt),W-40,y,'bold 32px','#c0392b','right');y+=56});
+  if(U.length){y+=20;t('Unpaid purchases',40,y,'bold 28px','#1b1f33');y+=18;U.forEach(function(e){y+=42;t(e.date+'  '+(e.card||e.owner+'’s card')+'  ('+e.shopper+')',40,y,'22px','#1b1f33');t(m(pay(e)),W-40,y,'22px','#1b1f33','right')})}
+  c.toBlob(function(b){var n='moneymate-summary-'+today()+'.png',f=new File([b],n,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:'MoneyMate summary'}).catch(function(){})}
+    else{var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();$('msg').textContent='Saved '+n+' to Downloads.'}},'image/png')}
 function logit(t){S.log=S.log||[];S.log.push({t:today()+' '+new Date().toTimeString().slice(0,5),m:t});if(S.log.length>200)S.log.splice(0,S.log.length-200)}
 function logHtml(){var l=(S.log||[]).slice().reverse();$('lg').textContent=showLog?'Hide log':'Show log';$('logv').innerHTML=showLog?(l.length?l.map(function(x){return '<div class="ent"><div class="mu">'+esc(x.t)+'</div><div>'+esc(x.m)+'</div></div>'}).join(''):'<div class="mu">Nothing logged yet.</div>'):''}
 function bannerUI(){var n=S.entries.length+(S.payments||[]).length,d=S.lastBackup?Math.floor((Date.now()-new Date(S.lastBackup+'T00:00:00'))/864e5):null,show=n>0&&(d===null||d>=7);$('bnr').hidden=!show;if(show)$('bt').textContent=d===null?'You haven’t backed up yet. Clearing browser data would erase this ledger.':'Last backup was '+d+' days ago.'}
@@ -185,7 +204,7 @@ function render(){
   var list=S.entries.filter(function(e){return showSettled||!e.settled}).slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0});
   $('tog').textContent=showSettled?'Hide settled':'Show settled';
   $('list').innerHTML=list.length?list.map(function(e){
-    return '<div class="ent'+(e.settled?' st':'')+'"><div class="top"><div><b class="db">'+esc(e.shopper)+'</b> used <b class="cr">'+esc(e.owner)+'</b>’s card</div><div><b>'+m(pay(e))+'</b></div></div>'+
+    return '<div class="ent'+(e.settled?' st':'')+'"><div class="top"><div><b class="db">'+esc(e.shopper)+'</b> used <b class="cr">'+esc(e.owner)+'</b>’s '+(e.card?esc(e.card):'card')+'</div><div><b>'+m(pay(e))+'</b></div></div>'+
     '<div class="mu">'+esc(e.date)+' · '+m(e.amount)+' at '+esc(e.disc)+'% off'+(e.cap?' (max '+m(e.cap)+')':'')+(e.fee?' + fee '+m(e.fee):'')+(e.share?' · owner keeps '+m(e.share)+'% of savings':'')+(e.note?' · '+esc(e.note):'')+(e.settled?' <span class="tag">settled '+esc(e.settled)+'</span>':'')+'</div>'+
     '<div class="act"><button data-edit="'+esc(e.id)+'">Edit</button><button data-del="'+esc(e.id)+'" class="'+(armed===e.id?'w':'')+'">'+(armed===e.id?'Tap again to delete':'Delete')+'</button></div></div>'}).join(''):
     '<div class="mu">No entries yet.</div>';
@@ -208,7 +227,7 @@ document.addEventListener('click',function(ev){
     if(armed!==id){armed=id;render();return}
     var de=S.entries.filter(function(e){return e.id===id})[0];if(de)logit('Deleted '+de.shopper+' on '+de.owner+'’s card: '+m(de.amount)+' at '+de.disc+'%');S.entries=S.entries.filter(function(e){return e.id!==id});armed=null;persist();render()}
   else if(t.dataset.edit){var e=S.entries.filter(function(x){return x.id===t.dataset.edit})[0];if(!e)return;
-    editId=e.id;$('date').value=e.date;$('owner').value=e.owner;$('shopper').value=e.shopper;$('amount').value=e.amount;$('disc').value=e.disc;$('cap').value=e.cap||'';$('fee').value=e.fee||'';$('note').value=e.note||'';
+    editId=e.id;$('date').value=e.date;$('owner').value=e.owner;$('shopper').value=e.shopper;$('amount').value=e.amount;$('disc').value=e.disc;$('cap').value=e.cap||'';$('fee').value=e.fee||'';cardsUI();$('card').value=e.card||'';$('cardnew').hidden=true;$('note').value=e.note||'';
     $('save').textContent='Save changes';$('cancel').hidden=false;calc();window.scrollTo({top:0,behavior:'smooth'})}
 });
 $('save').onclick=save;$('cancel').onclick=resetForm;
@@ -221,7 +240,7 @@ $('cp').onclick=function(){var b=$('bk');b.value=JSON.stringify({entries:S.entri
 function restore(txt){try{var d=JSON.parse(txt);if(!d||!Array.isArray(d.entries))throw 0;
   var add=0,have={};S.entries.forEach(function(e){have[e.id]=1});
   var D=/^\d{4}-\d\d-\d\d$/,T=function(v,n){return String(v==null?'':v).trim().slice(0,n)},I=function(v){v=String(v||'');return /^[a-z0-9]{3,20}$/.test(v)?v:Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
-  d.entries.forEach(function(e){if(!e||typeof e!=='object')return;var a=Number(e.amount),c=Number(e.disc)||0,o=T(e.owner,40),s=T(e.shopper,40);if(!isFinite(a)||a===0||!o||!s||o===s||c<0||c>100)return;var id=I(e.id);if(have[id])return;have[id]=1;add++;S.entries.push({id:id,date:D.test(e.date)?e.date:today(),owner:o,shopper:s,amount:a,disc:c,cap:Math.max(0,Number(e.cap)||0),fee:Number(e.fee)||0,share:Math.min(100,Math.max(0,Number(e.share)||0)),note:T(e.note,80),settled:D.test(e.settled)?e.settled:null})});
+  d.entries.forEach(function(e){if(!e||typeof e!=='object')return;var a=Number(e.amount),c=Number(e.disc)||0,o=T(e.owner,40),s=T(e.shopper,40);if(!isFinite(a)||a===0||!o||!s||o===s||c<0||c>100)return;var id=I(e.id);if(have[id])return;have[id]=1;add++;S.entries.push({id:id,date:D.test(e.date)?e.date:today(),owner:o,shopper:s,amount:a,disc:c,cap:Math.max(0,Number(e.cap)||0),fee:Number(e.fee)||0,share:Math.min(100,Math.max(0,Number(e.share)||0)),card:T(e.card,40),note:T(e.note,80),settled:D.test(e.settled)?e.settled:null})});
   S.payments=S.payments||[];var hp={};S.payments.forEach(function(p){hp[p.id]=1});
   (Array.isArray(d.payments)?d.payments:[]).forEach(function(p){if(!p||typeof p!=='object')return;var a=Number(p.amt),f=T(p.from,40),t=T(p.to,40),id=I(p.id);if(!isFinite(a)||a<=0||!f||!t||hp[id])return;hp[id]=1;add++;S.payments.push({id:id,date:D.test(p.date)?p.date:today(),from:f,to:t,amt:a})});
   persist();render();$('msg').textContent='Added '+add+' new items. Nothing existing was changed.'}catch(e){$('msg').textContent='That text is not a valid backup.'}}
@@ -252,6 +271,11 @@ $('rn').onclick=function(){var f=key($('rf').value),t=$('rt').value.trim();
   S.entries.forEach(function(e){e.owner=R(e.owner);e.shopper=R(e.shopper)});(S.payments||[]).forEach(function(p){p.from=R(p.from);p.to=R(p.to)});
   S.disc=S.disc||{};if(f!==tk){if(S.disc[tk]===undefined&&S.disc[f]!==undefined)S.disc[tk]=S.disc[f];delete S.disc[f]}
   logit('Renamed '+$('rf').value.trim()+' to '+t);persist();$('rf').value='';$('rt').value='';render();$('msg').textContent='Done.'};
+$('shr').onclick=shareImg;
+$('card').onchange=function(){var v=this.value,n=$('cardnew');n.hidden=v!=='__new';if(v==='__new'){n.focus();return}if(!v)return;var k=key(v),o=(S.cown||{})[k],dc=$('disc'),d=(S.cdisc||{})[k];if(o&&$('owner').value==='')$('owner').value=o;if(d!==undefined&&(dc.value===''||dc.dataset.auto==='1')){dc.value=d;dc.dataset.auto='1'}calc()};
+$('dl').onclick=function(){var txt=JSON.stringify({entries:S.entries,payments:S.payments||[],disc:S.disc||{}},null,1),name='moneymate-backup-'+today()+'.json',blob=new Blob([txt],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},3000);
+  S.lastBackup=today();persist();bannerUI();$('msg').textContent='Saved '+name+'. Check your Downloads folder.'};
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 load();$('share').value=S.share||'';resetForm();render();lockUI();lockNow();
 })();
